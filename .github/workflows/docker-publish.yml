@@ -1,47 +1,33 @@
-name: Publish Docker Image
-
+name: build-and-push
 on:
+  # 保留触发条件（同步代码后仍会触发构建，但不再推送）
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  packages: write
+    branches: [main]
+  # 若有其他触发条件（如 pull_request），可保留
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
+    # 仅保留读取代码的权限（无需推送，去掉 packages: write）
+    permissions:
+      contents: read
+    
     steps:
-      - name: Checkout
+      # 1. 拉取代码（保留）
+      - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Buildx
+      
+      # 2. 初始化 Docker Buildx（保留，仅用于构建）
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/imzyb/misub
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push
+      
+      # 3. 仅构建镜像，移除「登录 GHCR」和「推送镜像」步骤
+      - name: Build Docker image (no push)
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: false  # 核心：禁用推送
+          tags: ghcr.io/imzyb/misub:main  # 标签仅用于本地构建，不影响
+          # 可选：添加 cache 加速构建（非必需）
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
